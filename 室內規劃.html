@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Shape and Text Creator</title>
+    <style>
+        body {
+            background-color: #ffffff;
+            color: #000000;
+            font-family: Arial, sans-serif;
+        }
+        #canvasContainer {
+            border: 1px solid #000;
+            position: relative;
+            overflow: hidden;
+            background-color: #ffffff;
+        }
+        .shape, .text {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            padding: 5px;
+        }
+        .shape small {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <label for="canvasWidth">外框寬度:</label>
+        <input type="number" id="canvasWidth" value="500">
+        <label for="canvasHeight">外框高度:</label>
+        <input type="number" id="canvasHeight" value="500">
+        <button onclick="updateCanvasSize()">設定外框大小</button>
+    </div>
+    <div>
+        <label for="shapeType">新增圖形:</label>
+        <select id="shapeType">
+            <option value="rect">矩形</option>
+            <option value="circle">圓形</option>
+            <option value="line">線</option>
+        </select>
+        <label for="shapeName">命名圖形:</label>
+        <input type="text" id="shapeName">
+        <label for="shapeWidth">圖形寬度:</label>
+        <input type="number" id="shapeWidth" value="50">
+        <label for="shapeHeight">圖形高度:</label>
+        <input type="number" id="shapeHeight" value="50">
+        <label for="shapeAngle">角度:</label>
+        <input type="number" id="shapeAngle" value="0">
+        <label for="shapeColor">顏色:</label>
+        <select id="shapeColor">
+            <option value="#FF0000">紅色</option>
+            <option value="#00FF00">綠色</option>
+            <option value="#0000FF">藍色</option>
+            <option value="#FFFF00">黃色</option>
+            <option value="#FFA500">橙色</option>
+            <option value="#800080">紫色</option>
+            <option value="#00FFFF">青色</option>
+            <option value="#FFC0CB">粉色</option>
+            <option value="#808080">灰色</option>
+            <option value="#000000">黑色</option>
+        </select>
+        <button onclick="createShape()">新增圖形</button>
+    </div>
+    <div>
+        <label for="textContent">新增文字:</label>
+        <input type="text" id="textContent">
+        <label for="textColor">文字顏色:</label>
+        <select id="textColor">
+            <option value="#FF0000">紅色</option>
+            <option value="#00FF00">綠色</option>
+            <option value="#0000FF">藍色</option>
+            <option value="#FFFF00">黃色</option>
+            <option value="#FFA500">橙色</option>
+            <option value="#800080">紫色</option>
+            <option value="#00FFFF">青色</option>
+            <option value="#FFC0CB">粉色</option>
+            <option value="#808080">灰色</option>
+            <option value="#000000">黑色</option>
+        </select>
+        <button onclick="createText()">新增文字</button>
+    </div>
+    <div id="canvasContainer" style="width: 500px; height: 500px;" tabindex="0">
+    </div>
+    <button onclick="deleteSelected()">刪除選中的圖形或文字</button>
+    <button onclick="outputShapesInfo()">輸出圖形信息</button>
+    <div>
+        <label for="shapeInfo">圖形信息:</label>
+        <textarea id="shapeInfo" rows="10" cols="50"></textarea>
+        <button onclick="loadShapes()">輸入圖形信息</button>
+    </div>
+
+    <script>
+        let selectedElement = null;
+
+        function updateCanvasSize() {
+            const canvasContainer = document.getElementById('canvasContainer');
+            const width = document.getElementById('canvasWidth').value;
+            const height = document.getElementById('canvasHeight').value;
+            canvasContainer.style.width = width + 'px';
+            canvasContainer.style.height = height + 'px';
+        }
+
+        function checkOverlap(newElement) {
+            const canvasContainer = document.getElementById('canvasContainer');
+            const elements = canvasContainer.querySelectorAll('.shape, .text');
+            for (let element of elements) {
+                if (element !== newElement && element.classList.contains('shape')) {
+                    const rect1 = newElement.getBoundingClientRect();
+                    const rect2 = element.getBoundingClientRect();
+                    if (!(rect1.right < rect2.left || 
+                          rect1.left > rect2.right || 
+                          rect1.bottom < rect2.top || 
+                          rect1.top > rect2.bottom)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function isInsideBoundary(element, container) {
+            const rect = element.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            return (rect.left >= containerRect.left && 
+                    rect.top >= containerRect.top && 
+                    rect.right <= containerRect.right && 
+                    rect.bottom <= containerRect.bottom);
+        }
+
+        function createShape() {
+            const shapeType = document.getElementById('shapeType').value;
+            const shapeName = document.getElementById('shapeName').value;
+            const shapeWidth = document.getElementById('shapeWidth').value;
+            const shapeHeight = document.getElementById('shapeHeight').value;
+            const shapeAngle = document.getElementById('shapeAngle').value;
+            const shapeColor = document.getElementById('shapeColor').value;
+            addElement('shape', shapeType, shapeName, shapeWidth, shapeHeight, 0, 0, shapeAngle, shapeColor);
+        }
+
+        function createText() {
+            const textContent = document.getElementById('textContent').value;
+            const textColor = document.getElementById('textColor').value;
+            addElement('text', 'text', textContent, null, null, 0, 0, 0, textColor);
+        }
+
+        function addElement(type, subType, content, width, height, posX, posY, angle, color) {
+            const canvasContainer = document.getElementById('canvasContainer');
+            const element = document.createElement('div');
+            element.classList.add(type);
+            element.classList.add('element');
+            element.style.left = posX + 'px';
+            element.style.top = posY + 'px';
+
+            if (type === 'shape') {
+                element.style.backgroundColor = color;
+                if (width && height) {
+                    element.style.width = width + 'px';
+                    element.style.height = height + 'px';
+                }
+                if (subType === 'circle') {
+                    element.style.borderRadius = '50%';
+                } else if (subType === 'line') {
+                    element.style.width = '1px';
+                    element.style.height = height + 'px';
+                    element.style.transform = `rotate(${angle}deg)`;
+                }
+                element.style.transform = `rotate(${angle}deg)`;
+                element.innerHTML = `<span>${content}</span><small>${width}x${height}, ${angle}°</small>`;
+            } else if (type === 'text') {
+                element.innerText = content;
+                element.style.color = color;
+                element.style.border = 'none';
+            }
+
+            element.addEventListener('mousedown', function(event) {
+                selectedElement = element;
+                let isDragging = false;
+                let startX = event.clientX;
+                let startY = event.clientY;
+                let initialX = parseFloat(element.style.left);
+                let initialY = parseFloat(element.style.top);
+
+                function onMouseMove(event) {
+                    if (!isDragging) return;
+                    const newX = initialX + event.clientX - startX;
+                    const newY = initialY + event.clientY - startY;
+                    element.style.left = newX + 'px';
+                    element.style.top = newY + 'px';
+
+                    if (!isInsideBoundary(element, canvasContainer)) {
+                        element.style.backgroundColor = 'red';
+                    } else if (type === 'shape' && checkOverlap(element)) {
+                        element.style.backgroundColor = 'red';
+                    } else {
+                        if (type === 'shape') {
+                            element.style.backgroundColor = color;
+                        } else if (type === 'text') {
+                            element.style.backgroundColor = 'transparent';
+                        }
+                    }
+                }
+
+                function onMouseUp() {
+                    isDragging = false;
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+
+                isDragging = true;
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                event.preventDefault();
+            });
+
+            element.addEventListener('keydown', function(event) {
+                if (selectedElement !== element) return;
+                const step = 5;
+                const rect = element.getBoundingClientRect();
+                const containerRect = canvasContainer.getBoundingClientRect();
+                let newLeft = rect.left - containerRect.left;
+                let newTop = rect.top - containerRect.top;
+
+                switch(event.key) {
+                    case "ArrowUp":
+                        newTop -= step;
+                        break;
+                    case "ArrowDown":
+                        newTop += step;
+                        break;
+                    case "ArrowLeft":
+                        newLeft -= step;
+                        break;
+                    case "ArrowRight":
+                        newLeft += step;
+                        break;
+                }
+
+                element.style.left = newLeft + 'px';
+                element.style.top = newTop + 'px';
+
+                if (!isInsideBoundary(element, canvasContainer) || (type === 'shape' && checkOverlap(element))) {
+                    element.style.backgroundColor = 'red';
+                } else {
+                    if (type === 'shape') {
+                        element.style.backgroundColor = color;
+                    } else if (type === 'text') {
+                        element.style.backgroundColor = 'transparent';
+                    }
+                }
+            });
+
+            canvasContainer.appendChild(element);
+
+            if (type === 'shape' && checkOverlap(element)) {
+                element.style.backgroundColor = 'red';
+            }
+
+            element.tabIndex = 0; // Make the element focusable
+            element.focus();
+        }
+
+        function deleteSelected() {
+            if (selectedElement) {
+                selectedElement.remove();
+                selectedElement = null;
+            }
+        }
+
+        function outputShapesInfo() {
+            const canvasContainer = document.getElementById('canvasContainer');
+            const elements = canvasContainer.querySelectorAll('.shape, .text');
+            const shapeInfo = document.getElementById('shapeInfo');
+            let info = '';
+            elements.forEach(element => {
+                const rect = element.getBoundingClientRect();
+                const containerRect = canvasContainer.getBoundingClientRect();
+                const left = rect.left - containerRect.left;
+                const top = rect.top - containerRect.top;
+                const content = element.classList.contains('shape') ? element.querySelector('span').innerText : element.innerText;
+                const width = element.classList.contains('shape') ? element.style.width.replace('px', '') : 'N/A';
+                const height = element.classList.contains('shape') ? element.style.height.replace('px', '') : 'N/A';
+                const angle = element.style.transform ? element.style.transform.match(/rotate\((\d+)deg\)/)[1] : '0';
+                const color = element.classList.contains('shape') ? getComputedStyle(element).backgroundColor : getComputedStyle(element).color;
+                const shapeType = element.classList.contains('text') ? '文字' : element.classList.contains('shape') ? (element.style.borderRadius === '50%' ? '圓形' : element.style.width === '1px' ? '線' : '矩形') : '未知';
+                info += `類型: ${shapeType}, 名稱: ${content}, 寬度: ${width}, 高度: ${height}, X: ${left}, Y: ${top}, 角度: ${angle}, 顏色: ${color}\n`;
+            });
+            shapeInfo.value = info;
+        }
+
+        function loadShapes() {
+            const canvasContainer = document.getElementById('canvasContainer');
+            canvasContainer.innerHTML = ''; // Clear existing elements
+            const shapeInfo = document.getElementById('shapeInfo').value;
+            const lines = shapeInfo.split('\n');
+            lines.forEach(line => {
+                if (line.trim()) {
+                    const [typePart, namePart, widthPart, heightPart, xPart, yPart, anglePart, colorPart] = line.split(', ');
+                    const type = typePart.split(': ')[1] || '';
+                    const content = namePart.split(': ')[1] || '';
+                    const width = widthPart.split(': ')[1] !== 'N/A' ? parseInt(widthPart.split(': ')[1]) : null;
+                    const height = heightPart.split(': ')[1] !== 'N/A' ? parseInt(heightPart.split(': ')[1]) : null;
+                    const posX = parseInt(xPart.split(': ')[1]) || 0;
+                    const posY = parseInt(yPart.split(': ')[1]) || 0;
+                    const angle = parseInt(anglePart.split(': ')[1]) || 0;
+                    const color = colorPart.split(': ')[1] || '#000000';
+                    const subType = type === '圓形' ? 'circle' : type === '線' ? 'line' : 'rect';
+                    addElement(type === '文字' ? 'text' : 'shape', subType, content, width, height, posX, posY, angle, color);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
